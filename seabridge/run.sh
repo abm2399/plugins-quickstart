@@ -10,7 +10,6 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-HTML="$(cd "$SCRIPT_DIR/.." && pwd)/seabridge_dashboard_v2.html"
 PORT="${PORT:-8787}"
 export PRICE_PROVIDER="${PRICE_PROVIDER:-${1:-sample}}"
 export PORT
@@ -43,11 +42,8 @@ else
   sleep 2
 fi
 
-# Default port matches the HTML's built-in default, so only add ?api if overridden.
-URL="file://$HTML"
-if [ "$PORT" != "8787" ]; then
-  URL="file://$HTML?api=http://localhost:$PORT/api/prices"
-fi
+# The server serves the dashboard itself — open the URL, not a file path.
+URL="http://localhost:$PORT/"
 
 echo "Opening dashboard: $URL"
 case "$(uname -s)" in

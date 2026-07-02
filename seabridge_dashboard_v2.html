@@ -758,8 +758,13 @@ document.getElementById("search").addEventListener("input", e => {
                  seabridge_dashboard_v2.html?api=https://<deployment>/api/prices
    For an offline demo, run the service with PRICE_PROVIDER=sample.
    ─────────────────────────────────────────────────────────────────── */
-const PRICE_API = new URLSearchParams(location.search).get("api")
-  || "http://localhost:8787/api/prices";
+// When the dashboard is served by the price service (http://localhost:PORT),
+// talk to /api/prices on the same origin so any port just works. When opened
+// as a raw file (file://), fall back to the default local port. ?api= overrides.
+const _defaultApi = location.protocol.indexOf("http") === 0
+  ? "/api/prices"
+  : "http://localhost:8787/api/prices";
+const PRICE_API = new URLSearchParams(location.search).get("api") || _defaultApi;
 const NOTIONAL = 10000000;   // implied total book (incl. cash) to back out share counts
 let CASH = 0;
 

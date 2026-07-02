@@ -65,34 +65,38 @@ Notes:
 
 ## Run locally
 
-**One step** — starts the service and opens the dashboard, stops cleanly on Ctrl+C:
+New here / not a developer? See **[../GETTING_STARTED.md](../GETTING_STARTED.md)**.
+
+**One step** — starts the server and opens the dashboard in your browser,
+stops cleanly on Ctrl+C (Windows: close the window):
 
 ```bash
 cd seabridge
 ./run.sh                # macOS / Linux, sample provider (offline, no installs)
 ./run.sh yfinance       # live prices (after: pip install -r requirements.txt)
-# Windows:
-run.bat                 # or:  run.bat yfinance
+# Windows: double-click run.bat  (or:  run.bat yfinance)
 ```
 
-**Manual**, if you'd rather run the pieces yourself (stdlib only — the `sample`
+**Manual**, if you'd rather run the server yourself (stdlib only — the `sample`
 provider and all tests need **no third-party deps**):
 
 ```bash
 cd seabridge
-
-# offline, deterministic — great for building the Retool query
-PRICE_PROVIDER=sample python server.py
-
-# live prices
+PRICE_PROVIDER=sample python server.py     # offline, deterministic
+# or, for live prices:
 pip install -r requirements.txt
 PRICE_PROVIDER=yfinance python server.py
-
-curl 'http://localhost:8787/api/prices?tickers=NVDA,MSFT,AAPL'
 ```
 
-Then open `../seabridge_dashboard_v2.html` and click **Refresh prices**. On a
-non-default port, open it with `?api=http://localhost:<port>/api/prices`.
+Then **open http://localhost:8787 in your browser** — the server serves the
+dashboard page itself, so there are no file paths to manage and **Refresh
+prices** talks to `/api/prices` on the same origin (any port works).
+
+API only:
+
+```bash
+curl 'http://localhost:8787/api/prices?tickers=NVDA,MSFT,AAPL'
+```
 
 ## Test
 
