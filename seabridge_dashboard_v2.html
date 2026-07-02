@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SeaBridge Portfolio Dashboard</title>
+<style>
+  :root {
+    /* Canvas & surfaces */
+    --canvas: #0D1117;
+    --surface-1: #161B22;
+    --surface-2: #1C2128;
+    --surface-3: #22272E;
+    --border: #2A313A;
+    --border-soft: #21262D;
+
+    /* Text */
+    --text-hi: #E6EDF3;
+    --text-mid: #ADBAC7;
+    --text-lo: #768390;
+    --text-faint: #545D68;
+
+    /* Color language */
+    --cyan: #22D3EE;
+    --cyan-dim: #0E7490;
+    --green: #3FB950;
+    --green-bright: #56D364;
+    --red: #F85149;
+    --red-bright: #FF7B72;
+    --amber: #E3B341;
+    --violet: #A371F7;
+
+    --pos-bg: rgba(63, 185, 80, 0.10);
+    --neg-bg: rgba(248, 81, 73, 0.10);
+
+    --radius: 10px;
+    --radius-sm: 6px;
+    --mono: "SF Mono", "JetBrains Mono", "Roboto Mono", ui-monospace, Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, Helvetica, Arial, sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    background: var(--canvas);
+    color: var(--text-hi);
+    font-family: var(--sans);
+    font-size: 13px;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  body { min-height: 100vh; }
+
+  a { color: var(--cyan); text-decoration: none; }
+
+  /* ─────────────── Header ─────────────── */
+  header.topbar {
+    position: sticky; top: 0; z-index: 40;
+    background: rgba(13, 17, 23, 0.85);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 20px;
+    display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  }
+  .brand { display: flex; align-items: center; gap: 10px; }
+  .brand .mark {
+    width: 28px; height: 28px; border-radius: 7px;
+    background: linear-gradient(135deg, var(--cyan), var(--cyan-dim));
+    display: grid; place-items: center;
+    font-weight: 800; color: #04141A; font-size: 15px;
+    box-shadow: 0 0 18px rgba(34, 211, 238, 0.35);
+  }
+  .brand h1 { font-size: 15px; font-weight: 700; letter-spacing: 0.2px; }
+  .brand .sub { font-size: 11px; color: var(--text-lo); margin-top: 1px; }
+
+  .topbar .spacer { flex: 1 1 auto; }
+
+  .snapshot-inline {
+    display: flex; gap: 18px; align-items: center; flex-wrap: wrap;
+  }
+  .snap-pill { display: flex; flex-direction: column; align-items: flex-end; }
+  .snap-pill .k { font-size: 10px; color: var(--text-lo); text-transform: uppercase; letter-spacing: 0.6px; }
+  .snap-pill .v { font-size: 14px; font-weight: 700; font-family: var(--mono); }
+  .updated { font-size: 11px; color: var(--text-faint); }
+
+  /* ─────────────── Toolbar ─────────────── */
+  .toolbar {
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    padding: 14px 20px; border-bottom: 1px solid var(--border-soft);
+  }
+  .search {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--surface-2); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 7px 10px; min-width: 210px;
+  }
+  .search input {
+    background: transparent; border: none; outline: none;
+    color: var(--text-hi); font-family: var(--sans); font-size: 13px; width: 100%;
+  }
+  .search svg { flex: none; }
+
+  .seg {
+    display: inline-flex; background: var(--surface-2);
+    border: 1px solid var(--border); border-radius: var(--radius-sm);
+    padding: 3px; gap: 2px;
+  }
+  .seg button {
+    border: none; background: transparent; color: var(--text-mid);
+    font-family: var(--sans); font-size: 12px; font-weight: 600;
+    padding: 6px 12px; border-radius: 4px; cursor: pointer;
+    transition: background .12s, color .12s;
+  }
+  .seg button:hover { color: var(--text-hi); }
+  .seg button.active { background: var(--surface-3); color: var(--cyan); box-shadow: inset 0 0 0 1px rgba(34,211,238,.25); }
+
+  .switch-wrap { display: flex; align-items: center; gap: 8px; color: var(--text-mid); font-size: 12px; font-weight: 600; }
+  .switch {
+    position: relative; width: 40px; height: 22px; border-radius: 12px;
+    background: var(--surface-3); border: 1px solid var(--border);
+    cursor: pointer; transition: background .15s; flex: none;
+  }
+  .switch::after {
+    content: ""; position: absolute; top: 2px; left: 2px;
+    width: 16px; height: 16px; border-radius: 50%;
+    background: var(--text-lo); transition: transform .15s, background .15s;
+  }
+  .switch.on { background: rgba(34,211,238,.25); border-color: var(--cyan-dim); }
+  .switch.on::after { transform: translateX(18px); background: var(--cyan); }
+
+  .toolbar .spacer { flex: 1 1 auto; }
+  .count-note { font-size: 11px; color: var(--text-lo); font-family: var(--mono); }
+
+  /* ─────────────── Layout ─────────────── */
+  .layout {
+    display: grid; grid-template-columns: minmax(0,1fr) 320px;
+    gap: 18px; padding: 18px 20px 40px;
+    align-items: start;
+  }
+  @media (max-width: 1100px) {
+    .layout { grid-template-columns: 1fr; }
+    .sidebar { order: -1; }
+  }
+
+  /* ─────────────── Table ─────────────── */
+  .table-card {
+    background: var(--surface-1); border: 1px solid var(--border);
+    border-radius: var(--radius); overflow: hidden;
+  }
+  .table-scroll { overflow-x: auto; }
+  table { border-collapse: separate; border-spacing: 0; width: 100%; min-width: 1180px; }
+
+  thead th {
+    position: sticky; top: 0; z-index: 5;
+    background: var(--surface-2);
+    color: var(--text-lo); font-size: 10.5px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.5px;
+    padding: 10px 10px; text-align: right; white-space: nowrap;
+    border-bottom: 1px solid var(--border); cursor: pointer; user-select: none;
+  }
+  thead th:hover { color: var(--text-hi); }
+  thead th .arrow { color: var(--cyan); font-size: 9px; margin-left: 3px; }
+  th.col-ticker, td.col-ticker { text-align: left; }
+  th.col-name, td.col-name { text-align: left; }
+
+  tbody td {
+    padding: 9px 10px; text-align: right; white-space: nowrap;
+    border-bottom: 1px solid var(--border-soft);
+    font-family: var(--mono); font-size: 12px; color: var(--text-mid);
+  }
+  tbody tr:hover td { background: rgba(255,255,255,0.022); }
+
+  /* Frozen ticker column */
+  th.col-ticker, td.col-ticker {
+    position: sticky; left: 0; z-index: 6;
+    background: var(--surface-1);
+    box-shadow: 1px 0 0 var(--border);
+    min-width: 78px;
+  }
+  thead th.col-ticker { z-index: 7; background: var(--surface-2); }
+  tbody tr:hover td.col-ticker { background: #1a2028; }
+  td.col-ticker .tk { font-weight: 800; color: var(--text-hi); font-family: var(--mono); font-size: 12.5px; letter-spacing: .3px; }
+
+  td.col-name { font-family: var(--sans); color: var(--text-mid); max-width: 190px; overflow: hidden; text-overflow: ellipsis; }
+
+  .pos { color: var(--green-bright); }
+  .neg { color: var(--red-bright); }
+  .muted { color: var(--text-faint); }
+
+  .pill {
+    display: inline-block; padding: 1px 6px; border-radius: 4px;
+    font-size: 11px; font-weight: 600;
+  }
+  .pill.pos { background: var(--pos-bg); color: var(--green-bright); }
+  .pill.neg { background: var(--neg-bg); color: var(--red-bright); }
+
+  /* MOIC tiers */
+  .moic-hi { color: var(--cyan); font-weight: 700; }
+  .moic-mid { color: var(--text-hi); }
+  .moic-lo { color: var(--text-faint); }
+
+  /* Sector group header row */
+  tr.group-row td {
+    background: var(--surface-3);
+    color: var(--cyan); font-family: var(--sans);
+    font-weight: 700; font-size: 11px; text-transform: uppercase;
+    letter-spacing: 0.8px; text-align: left; padding: 8px 10px;
+    border-bottom: 1px solid var(--border);
+    position: sticky; left: 0;
+  }
+  tr.group-row td .g-meta { float: right; color: var(--text-lo); font-family: var(--mono); font-weight: 600; letter-spacing: 0; text-transform: none; }
+
+  .empty { padding: 40px; text-align: center; color: var(--text-lo); }
+
+  /* ─────────────── Sidebar ─────────────── */
+  .sidebar { display: flex; flex-direction: column; gap: 16px; }
+  .panel {
+    background: var(--surface-1); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 14px 15px;
+  }
+  .panel h2 {
+    font-size: 11px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.7px; color: var(--text-lo); margin-bottom: 12px;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .panel h2 .tag { font-size: 10px; color: var(--text-faint); font-weight: 600; letter-spacing: 0; }
+
+  /* Snapshot grid */
+  .snap-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 12px; }
+  .snap-cell .k { font-size: 10px; color: var(--text-lo); text-transform: uppercase; letter-spacing: .5px; }
+  .snap-cell .v { font-size: 16px; font-weight: 700; font-family: var(--mono); margin-top: 2px; }
+
+  /* Allocation bars */
+  .alloc-row { margin-bottom: 11px; }
+  .alloc-row:last-child { margin-bottom: 0; }
+  .alloc-head { display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 4px; }
+  .alloc-head .s { color: var(--text-mid); font-weight: 600; }
+  .alloc-head .n { font-family: var(--mono); color: var(--text-lo); }
+  .alloc-head .n b { color: var(--text-hi); }
+  .bar-track { position: relative; height: 14px; background: var(--surface-3); border-radius: 4px; }
+  .bar-port { position: absolute; left: 0; top: 0; height: 100%; background: linear-gradient(90deg, var(--cyan-dim), var(--cyan)); border-radius: 4px; }
+  .bar-bench { position: absolute; top: -2px; height: 18px; width: 2px; background: var(--text-hi); opacity: .85; }
+  .bar-bench::after { content: ""; }
+
+  .legend { display: flex; gap: 14px; margin-top: 10px; font-size: 10.5px; color: var(--text-lo); }
+  .legend .dot { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 5px; vertical-align: middle; }
+  .legend .dot.port { background: var(--cyan); }
+  .legend .dot.bench { width: 2px; height: 11px; border-radius: 0; background: var(--text-hi); }
+
+  /* Movers */
+  .mover-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .mover-cols h3 { font-size: 10px; color: var(--text-faint); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 8px; font-weight: 700; }
+  .mover { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; }
+  .mover .tk { font-family: var(--mono); font-weight: 700; font-size: 12px; color: var(--text-hi); }
+  .mover .v { font-family: var(--mono); font-size: 12px; }
+
+  /* Earnings */
+  .earn-row { display: flex; justify-content: space-between; align-items: center; padding: 7px 0; border-bottom: 1px solid var(--border-soft); }
+  .earn-row:last-child { border-bottom: none; }
+  .earn-left { display: flex; flex-direction: column; }
+  .earn-left .tk { font-family: var(--mono); font-weight: 700; color: var(--text-hi); font-size: 12px; }
+  .earn-left .nm { font-size: 10.5px; color: var(--text-lo); }
+  .earn-right { text-align: right; }
+  .earn-right .d { font-family: var(--mono); font-size: 12px; color: var(--text-hi); }
+  .earn-right .rel { font-size: 10px; color: var(--cyan); }
+  .earn-right .rel.soon { color: var(--amber); }
+
+  footer.foot { padding: 18px 20px 30px; color: var(--text-faint); font-size: 11px; border-top: 1px solid var(--border-soft); }
+
+  ::-webkit-scrollbar { height: 10px; width: 10px; }
+  ::-webkit-scrollbar-thumb { background: var(--surface-3); border-radius: 6px; border: 2px solid var(--canvas); }
+  ::-webkit-scrollbar-track { background: transparent; }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <div class="mark">S</div>
+    <div>
+      <h1>SeaBridge Portfolio Dashboard</h1>
+      <div class="sub">GARP holdings &middot; benchmark-relative</div>
+    </div>
+  </div>
+  <div class="spacer"></div>
+  <div class="snapshot-inline" id="snapshotInline"></div>
+  <div class="updated" id="updated"></div>
+</header>
+
+<div class="toolbar">
+  <div class="search">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#768390" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+    <input id="search" type="text" placeholder="Search ticker or name…" autocomplete="off" />
+  </div>
+
+  <div class="seg" id="filterSeg">
+    <button data-f="all" class="active">All</button>
+    <button data-f="ow">Overweight</button>
+    <button data-f="uw">Underweight</button>
+    <button data-f="win">Winners</button>
+    <button data-f="lose">Losers</button>
+  </div>
+
+  <div class="switch-wrap">
+    <div class="switch" id="groupSwitch" role="switch" aria-checked="false"></div>
+    <span>Group by sector</span>
+  </div>
+
+  <div class="spacer"></div>
+  <div class="count-note" id="countNote"></div>
+</div>
+
+<div class="layout">
+  <div class="table-card">
+    <div class="table-scroll">
+      <table>
+        <thead><tr id="headRow"></tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <aside class="sidebar">
+    <div class="panel">
+      <h2>Portfolio Snapshot</h2>
+      <div class="snap-grid" id="snapGrid"></div>
+    </div>
+
+    <div class="panel">
+      <h2>Sector Allocation <span class="tag">vs benchmark</span></h2>
+      <div id="allocBars"></div>
+      <div class="legend">
+        <span><span class="dot port"></span>Portfolio</span>
+        <span><span class="dot bench"></span>Benchmark</span>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>5D Movers</h2>
+      <div class="mover-cols">
+        <div>
+          <h3>Top</h3>
+          <div id="moversUp"></div>
+        </div>
+        <div>
+          <h3>Bottom</h3>
+          <div id="moversDown"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Upcoming Earnings</h2>
+      <div id="earnings"></div>
+    </div>
+  </aside>
+</div>
+
+<footer class="foot">
+  SeaBridge Portfolio Dashboard &middot; prototype v2 &middot; sample data for layout reference only — not investment advice.
+</footer>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════
+   SAMPLE DATA  (~42 GARP positions)
+   Fields:
+     ticker, name, sector, weight, benchWt, last, chg (%chg today),
+     r5d, r30d, ytd, r12m, hpr (holding-period return),
+     peNTM, evEbitda, moic5y, moic10y, from52 (% from 52wk high),
+     earnings (ISO date or null)
+   activeWt is derived = weight - benchWt.
+   nulls (n/a) are allowed and sort last.
+   ═══════════════════════════════════════════════════════════════ */
+const AS_OF = "2026-07-02";
+const RAW = [
+  ["MSFT","Microsoft Corp","Information Technology",5.8,6.9,468.20,0.82,1.9,4.1,12.4,26.8,214.5,31.2,22.4,6.1,14.8,-3.1,"2026-07-22"],
+  ["NVDA","NVIDIA Corp","Information Technology",5.1,6.2,131.40,2.14,5.8,9.2,28.6,71.2,612.0,34.8,29.1,9.4,41.0,-6.4,"2026-08-27"],
+  ["AAPL","Apple Inc","Information Technology",4.2,6.4,214.80,-0.31,-0.8,2.2,6.1,14.9,188.2,28.6,20.9,5.2,11.4,-8.2,"2026-07-31"],
+  ["GOOGL","Alphabet Inc Cl A","Communication Services",4.0,3.8,182.60,1.02,3.1,6.8,14.2,31.4,142.0,21.4,14.2,4.8,10.1,-2.4,"2026-07-24"],
+  ["AMZN","Amazon.com Inc","Consumer Discretionary",3.6,3.9,205.10,0.44,2.2,3.9,9.8,28.1,96.4,36.2,17.8,4.1,9.2,-5.1,"2026-08-01"],
+  ["META","Meta Platforms Cl A","Communication Services",3.3,2.6,612.40,1.58,4.4,7.1,18.9,52.6,301.2,24.1,15.6,5.9,13.7,-1.8,"2026-07-30"],
+  ["BRK.B","Berkshire Hathaway Cl B","Financials",3.1,1.7,478.90,0.21,0.9,2.8,11.2,19.4,88.6,null,null,2.4,4.9,-2.0,null],
+  ["V","Visa Inc Cl A","Financials",2.9,1.1,318.70,0.36,1.4,3.2,8.4,17.2,164.8,27.8,21.4,4.6,10.8,-3.6,"2026-07-23"],
+  ["UNH","UnitedHealth Group","Health Care",2.7,1.2,512.30,-1.24,-4.2,-8.6,-11.4,-6.8,72.4,15.2,10.8,3.1,7.2,-24.6,"2026-07-15"],
+  ["MA","Mastercard Inc Cl A","Financials",2.6,1.0,548.20,0.29,1.1,2.9,7.8,15.6,148.2,29.4,24.1,4.9,11.6,-2.9,"2026-07-29"],
+  ["LLY","Eli Lilly & Co","Health Care",2.5,1.4,824.60,1.44,3.8,6.2,4.8,22.4,412.0,42.6,32.8,7.8,22.4,-9.4,"2026-08-06"],
+  ["COST","Costco Wholesale","Consumer Staples",2.4,0.8,972.40,0.62,2.1,4.4,10.2,28.6,196.4,48.2,26.4,4.2,9.8,-4.1,"2026-09-25"],
+  ["JPM","JPMorgan Chase & Co","Financials",2.3,1.3,268.40,0.48,1.6,3.8,14.6,32.1,124.6,13.8,null,3.2,6.8,-1.2,"2026-07-14"],
+  ["HD","Home Depot Inc","Consumer Discretionary",2.2,0.9,388.20,-0.22,-1.1,0.8,2.4,9.6,84.2,24.6,17.2,3.0,7.4,-11.8,"2026-08-18"],
+  ["ASML","ASML Holding NV ADR","Information Technology",2.1,0.4,742.80,1.86,4.9,8.1,16.4,38.2,268.0,32.1,24.8,5.6,13.2,-7.2,"2026-07-16"],
+  ["ADBE","Adobe Inc","Information Technology",2.0,0.6,428.60,-0.68,-2.4,-1.2,-8.6,-14.2,142.8,21.8,17.4,4.1,10.2,-28.4,"2026-09-11"],
+  ["NOW","ServiceNow Inc","Information Technology",1.9,0.5,912.40,1.22,3.6,5.8,11.8,34.6,224.6,52.4,42.1,5.8,14.6,-6.8,"2026-07-24"],
+  ["TMO","Thermo Fisher Scientific","Health Care",1.9,0.6,542.10,0.18,0.6,2.1,-1.4,4.2,68.4,21.2,15.8,2.8,6.4,-14.2,"2026-07-23"],
+  ["PG","Procter & Gamble Co","Consumer Staples",1.8,1.0,168.40,-0.14,-0.4,1.2,3.8,8.4,58.2,23.4,16.2,2.2,5.1,-5.4,"2026-07-28"],
+  ["CAT","Caterpillar Inc","Industrials",1.8,0.5,412.80,0.94,2.8,5.4,18.2,29.4,168.4,17.6,12.4,3.4,7.8,-2.1,"2026-08-05"],
+  ["ACN","Accenture Plc Cl A","Information Technology",1.7,0.5,362.40,-0.42,-1.6,-0.4,-6.2,-2.8,96.2,24.2,15.4,2.9,6.8,-16.4,"2026-09-24"],
+  ["NKE","Nike Inc Cl B","Consumer Discretionary",1.6,0.4,74.20,-1.86,-3.8,-6.4,-18.6,-24.2,-12.4,22.8,16.8,1.4,3.2,-42.8,"2026-09-26"],
+  ["ISRG","Intuitive Surgical","Health Care",1.6,0.4,548.60,1.34,4.1,7.2,14.8,36.2,248.6,58.4,44.2,5.4,13.8,-3.2,"2026-07-17"],
+  ["LIN","Linde Plc","Materials",1.5,0.6,472.40,0.28,0.9,2.6,8.2,16.4,128.4,26.8,17.2,3.1,7.2,-4.6,"2026-07-31"],
+  ["TXN","Texas Instruments","Information Technology",1.5,0.4,208.60,0.72,2.4,4.8,9.4,18.6,86.4,28.4,17.8,2.6,6.2,-6.4,"2026-07-22"],
+  ["AXP","American Express Co","Financials",1.4,0.4,312.80,0.58,2.1,4.2,16.8,38.4,182.6,19.4,null,3.6,8.4,-1.4,"2026-07-18"],
+  ["DHR","Danaher Corp","Health Care",1.4,0.5,248.20,-0.34,-1.2,0.4,-4.8,-8.2,54.6,26.2,17.4,2.4,5.8,-19.6,"2026-07-22"],
+  ["SBUX","Starbucks Corp","Consumer Discretionary",1.3,0.3,98.40,-0.94,-2.6,-3.8,-9.4,-16.8,-4.2,24.6,14.2,1.6,3.8,-26.2,"2026-07-29"],
+  ["INTU","Intuit Inc","Information Technology",1.3,0.4,682.40,0.88,2.8,4.6,10.2,24.8,196.4,34.8,26.4,4.2,10.6,-8.4,"2026-08-21"],
+  ["BKNG","Booking Holdings","Consumer Discretionary",1.2,0.3,5124.60,1.14,3.4,6.2,15.6,34.2,286.4,24.6,18.2,4.8,11.8,-3.8,"2026-08-04"],
+  ["AMAT","Applied Materials","Information Technology",1.2,0.3,218.40,1.42,4.2,7.8,14.2,28.6,148.2,20.4,15.2,3.2,7.6,-9.2,"2026-08-13"],
+  ["SYK","Stryker Corp","Health Care",1.1,0.4,392.60,0.24,0.8,2.4,6.8,14.2,112.4,28.6,19.4,2.8,6.6,-5.2,"2026-07-30"],
+  ["UBER","Uber Technologies","Industrials",1.1,0.3,84.20,1.96,5.2,9.8,22.4,48.6,168.4,28.2,22.6,3.8,null,-4.2,"2026-08-06"],
+  ["MDLZ","Mondelez Intl Cl A","Consumer Staples",1.0,0.3,68.40,-0.28,-0.9,0.6,2.2,4.8,42.6,20.8,14.8,1.8,4.2,-8.6,"2026-07-28"],
+  ["CDNS","Cadence Design Systems","Information Technology",1.0,0.2,318.60,1.08,3.2,6.4,12.8,32.4,214.8,48.6,40.2,4.6,11.4,-5.8,"2026-07-27"],
+  ["ETN","Eaton Corp Plc","Industrials",0.9,0.3,342.40,0.86,2.6,5.2,16.4,28.2,162.4,26.4,19.8,3.4,7.8,-3.4,"2026-08-04"],
+  ["PANW","Palo Alto Networks","Information Technology",0.9,0.3,384.20,1.32,3.8,6.8,13.4,36.8,242.6,52.8,44.6,4.8,null,-6.2,"2026-08-18"],
+  ["REGN","Regeneron Pharma","Health Care",0.8,0.2,742.60,-0.62,-2.2,-4.8,-14.2,-22.4,68.4,16.8,11.2,2.2,5.4,-34.8,"2026-08-01"],
+  ["FTNT","Fortinet Inc","Information Technology",0.8,0.2,98.60,0.94,2.8,5.6,11.2,28.4,186.4,38.2,30.4,4.2,10.2,-7.4,"2026-08-06"],
+  ["TDG","TransDigm Group","Industrials",0.7,0.2,1482.40,0.42,1.4,3.6,14.8,26.4,318.6,32.4,22.8,5.2,13.6,-2.8,"2026-08-05"],
+  ["ODFL","Old Dominion Freight","Industrials",0.6,0.1,182.40,-0.48,-1.8,-2.4,-6.8,-9.6,124.6,28.6,16.4,2.6,6.2,-16.8,"2026-07-30"],
+  ["ROP","Roper Technologies","Information Technology",0.6,0.2,562.80,0.32,1.1,2.8,7.4,12.8,98.4,29.8,22.4,2.8,6.8,-4.2,"2026-07-28"]
+];
+
+const FIELDS = {
+  ticker:0, name:1, sector:2, weight:3, benchWt:4, last:5, chg:6,
+  r5d:7, r30d:8, ytd:9, r12m:10, hpr:11, peNTM:12, evEbitda:13,
+  moic5y:14, moic10y:15, from52:16, earnings:17
+};
+
+const DATA = RAW.map(r => {
+  const o = {};
+  for (const k in FIELDS) o[k] = r[FIELDS[k]];
+  o.activeWt = +(o.weight - o.benchWt).toFixed(2);
+  return o;
+});
+
+/* ─── Column definitions ─── */
+const COLS = [
+  { key:"ticker",   label:"Ticker",  type:"str",  cls:"col-ticker" },
+  { key:"name",     label:"Name",    type:"str",  cls:"col-name" },
+  { key:"weight",   label:"Wt %",    type:"pct1" },
+  { key:"benchWt",  label:"Bench %", type:"pct1" },
+  { key:"activeWt", label:"Active",  type:"signed1" },
+  { key:"last",     label:"Last",    type:"price" },
+  { key:"chg",      label:"%Chg",    type:"ret" },
+  { key:"r5d",      label:"5D",      type:"ret" },
+  { key:"r30d",     label:"30D",     type:"ret" },
+  { key:"ytd",      label:"YTD",     type:"ret" },
+  { key:"r12m",     label:"12M",     type:"ret" },
+  { key:"hpr",      label:"HPR",     type:"ret" },
+  { key:"peNTM",    label:"PE NTM",  type:"mult" },
+  { key:"evEbitda", label:"EV/EBITDA", type:"mult" },
+  { key:"moic5y",   label:"5Y MOIC", type:"moic" },
+  { key:"moic10y",  label:"10Y MOIC",type:"moic" },
+  { key:"from52",   label:"% 52wk Hi", type:"ret" }
+];
+
+/* ═══════════════════ STATE ═══════════════════ */
+let state = {
+  filter: "all",
+  group: false,
+  query: "",
+  sortKey: "weight",
+  sortDir: "desc"   // 'asc' | 'desc'
+};
+
+/* ═══════════════════ FORMATTERS ═══════════════════ */
+const isNull = v => v === null || v === undefined || v === "" || (typeof v === "number" && isNaN(v));
+
+function fmt(val, type) {
+  if (isNull(val)) return { text: "—", cls: "muted" };
+  switch (type) {
+    case "str":    return { text: val, cls: "" };
+    case "pct1":   return { text: val.toFixed(1), cls: "" };
+    case "signed1":{
+      const s = (val > 0 ? "+" : "") + val.toFixed(1);
+      return { text: s, cls: val > 0 ? "pos" : val < 0 ? "neg" : "muted" };
+    }
+    case "price":  return { text: val >= 1000 ? val.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}) : val.toFixed(2), cls: "" };
+    case "ret": {
+      const s = (val > 0 ? "+" : "") + val.toFixed(1) + "%";
+      return { text: s, cls: val > 0 ? "pos" : val < 0 ? "neg" : "muted" };
+    }
+    case "mult":   return { text: val.toFixed(1) + "×", cls: "" };
+    case "moic": {
+      const cls = val >= 5 ? "moic-hi" : val >= 2 ? "moic-mid" : "moic-lo";
+      return { text: val.toFixed(1) + "×", cls };
+    }
+    default: return { text: String(val), cls: "" };
+  }
+}
+
+/* ═══════════════════ FILTER / SORT ═══════════════════ */
+function passesFilter(d) {
+  switch (state.filter) {
+    case "ow":   return d.activeWt > 0;
+    case "uw":   return d.activeWt < 0;
+    case "win":  return !isNull(d.chg) && d.chg > 0;
+    case "lose": return !isNull(d.chg) && d.chg < 0;
+    default:     return true;
+  }
+}
+function passesSearch(d) {
+  if (!state.query) return true;
+  const q = state.query.toLowerCase();
+  return d.ticker.toLowerCase().includes(q) || d.name.toLowerCase().includes(q);
+}
+
+function sortRows(rows) {
+  const { sortKey, sortDir } = state;
+  const col = COLS.find(c => c.key === sortKey);
+  const isStr = col && col.type === "str";
+  const dir = sortDir === "asc" ? 1 : -1;
+  return rows.slice().sort((a, b) => {
+    const av = a[sortKey], bv = b[sortKey];
+    const an = isNull(av), bn = isNull(bv);
+    // nulls always sort last regardless of direction
+    if (an && bn) return 0;
+    if (an) return 1;
+    if (bn) return -1;
+    if (isStr) return dir * String(av).localeCompare(String(bv));
+    return dir * (av - bv);
+  });
+}
+
+/* ═══════════════════ RENDER TABLE ═══════════════════ */
+function renderHead() {
+  const tr = document.getElementById("headRow");
+  tr.innerHTML = COLS.map(c => {
+    const active = state.sortKey === c.key;
+    const arrow = active ? `<span class="arrow">${state.sortDir === "asc" ? "▲" : "▼"}</span>` : "";
+    return `<th class="${c.cls || ""}" data-key="${c.key}">${c.label}${arrow}</th>`;
+  }).join("");
+  tr.querySelectorAll("th").forEach(th => {
+    th.addEventListener("click", () => {
+      const k = th.dataset.key;
+      if (state.sortKey === k) {
+        state.sortDir = state.sortDir === "asc" ? "desc" : "asc";
+      } else {
+        state.sortKey = k;
+        // default: strings ascending, numbers descending
+        const col = COLS.find(c => c.key === k);
+        state.sortDir = col.type === "str" ? "asc" : "desc";
+      }
+      render();
+    });
+  });
+}
+
+function rowHTML(d) {
+  return "<tr>" + COLS.map(c => {
+    const f = fmt(d[c.key], c.type);
+    if (c.key === "ticker") {
+      return `<td class="col-ticker"><span class="tk">${f.text}</span></td>`;
+    }
+    if (c.type === "ret" && !isNull(d[c.key]) && (c.key === "chg")) {
+      return `<td class="${c.cls || ""}"><span class="pill ${f.cls}">${f.text}</span></td>`;
+    }
+    return `<td class="${c.cls || ""} ${f.cls}">${f.text}</td>`;
+  }).join("") + "</tr>";
+}
+
+function groupRowHTML(sector, rows) {
+  const wt = rows.reduce((s, r) => s + r.weight, 0);
+  const active = rows.reduce((s, r) => s + r.activeWt, 0);
+  const aCls = active > 0 ? "pos" : active < 0 ? "neg" : "muted";
+  const aTxt = (active > 0 ? "+" : "") + active.toFixed(1);
+  return `<tr class="group-row"><td colspan="${COLS.length}">${sector}
+    <span class="g-meta">${rows.length} pos &middot; ${wt.toFixed(1)}% wt &middot; <span class="${aCls}">${aTxt} active</span></span>
+  </td></tr>`;
+}
+
+function render() {
+  renderHead();
+  let rows = DATA.filter(d => passesFilter(d) && passesSearch(d));
+  const tbody = document.getElementById("tbody");
+  const total = rows.length;
+
+  if (total === 0) {
+    tbody.innerHTML = `<tr><td class="empty" colspan="${COLS.length}">No positions match your filters.</td></tr>`;
+  } else if (state.group) {
+    const bySector = {};
+    rows.forEach(r => { (bySector[r.sector] = bySector[r.sector] || []).push(r); });
+    // sort sectors by aggregate weight desc; within, apply active sort
+    const sectors = Object.keys(bySector).sort((a, b) =>
+      bySector[b].reduce((s,r)=>s+r.weight,0) - bySector[a].reduce((s,r)=>s+r.weight,0));
+    let html = "";
+    sectors.forEach(sec => {
+      html += groupRowHTML(sec, bySector[sec]);
+      html += sortRows(bySector[sec]).map(rowHTML).join("");
+    });
+    tbody.innerHTML = html;
+  } else {
+    tbody.innerHTML = sortRows(rows).map(rowHTML).join("");
+  }
+
+  document.getElementById("countNote").textContent =
+    `${total} of ${DATA.length} positions` + (state.group ? " · grouped" : "");
+}
+
+/* ═══════════════════ SIDEBAR ═══════════════════ */
+function wSum(field) {
+  // weight-weighted average of a return field (skips nulls, renormalizes)
+  let num = 0, den = 0;
+  DATA.forEach(d => { if (!isNull(d[field])) { num += d.weight * d[field]; den += d.weight; } });
+  return den ? num / den : 0;
+}
+
+function renderSnapshot() {
+  const totalWt = DATA.reduce((s,d)=>s+d.weight,0);
+  const owCount = DATA.filter(d=>d.activeWt>0).length;
+  const uwCount = DATA.filter(d=>d.activeWt<0).length;
+  const dayChg = wSum("chg");
+  const ytd = wSum("ytd");
+  const r12m = wSum("r12m");
+  const avgPE = (() => { let n=0,d=0; DATA.forEach(x=>{if(!isNull(x.peNTM)){n+=x.weight*x.peNTM;d+=x.weight;}}); return d?n/d:0; })();
+
+  const cells = [
+    { k:"Positions", v:String(DATA.length), cls:"" },
+    { k:"Invested Wt", v:totalWt.toFixed(1)+"%", cls:"" },
+    { k:"Day Chg", v:(dayChg>0?"+":"")+dayChg.toFixed(2)+"%", cls: dayChg>0?"pos":"neg" },
+    { k:"YTD", v:(ytd>0?"+":"")+ytd.toFixed(1)+"%", cls: ytd>0?"pos":"neg" },
+    { k:"12M", v:(r12m>0?"+":"")+r12m.toFixed(1)+"%", cls: r12m>0?"pos":"neg" },
+    { k:"Wtd PE NTM", v:avgPE.toFixed(1)+"×", cls:"" },
+    { k:"Overweight", v:String(owCount), cls:"" },
+    { k:"Underweight", v:String(uwCount), cls:"" }
+  ];
+  document.getElementById("snapGrid").innerHTML = cells.map(c =>
+    `<div class="snap-cell"><div class="k">${c.k}</div><div class="v ${c.cls}">${c.v}</div></div>`
+  ).join("");
+
+  // inline header snapshot (compact)
+  document.getElementById("snapshotInline").innerHTML = [
+    { k:"Day", v:(dayChg>0?"+":"")+dayChg.toFixed(2)+"%", cls: dayChg>0?"pos":"neg" },
+    { k:"YTD", v:(ytd>0?"+":"")+ytd.toFixed(1)+"%", cls: ytd>0?"pos":"neg" },
+    { k:"12M", v:(r12m>0?"+":"")+r12m.toFixed(1)+"%", cls: r12m>0?"pos":"neg" }
+  ].map(p => `<div class="snap-pill"><span class="k">${p.k}</span><span class="v ${p.cls}">${p.v}</span></div>`).join("");
+}
+
+function renderAllocation() {
+  const secs = {};
+  DATA.forEach(d => {
+    const s = secs[d.sector] = secs[d.sector] || { port:0, bench:0 };
+    s.port += d.weight; s.bench += d.benchWt;
+  });
+  const rows = Object.entries(secs).map(([name,v]) => ({ name, port:v.port, bench:v.bench }))
+    .sort((a,b) => b.port - a.port);
+  const max = Math.max(...rows.map(r => Math.max(r.port, r.bench))) * 1.05;
+  const shortName = n => ({
+    "Information Technology":"Info Tech",
+    "Communication Services":"Comm Svcs",
+    "Consumer Discretionary":"Cons Disc",
+    "Consumer Staples":"Cons Staples",
+    "Health Care":"Health Care"
+  })[n] || n;
+
+  document.getElementById("allocBars").innerHTML = rows.map(r => {
+    const active = r.port - r.bench;
+    const aCls = active > 0 ? "pos" : active < 0 ? "neg" : "muted";
+    const aTxt = (active>0?"+":"")+active.toFixed(1);
+    return `<div class="alloc-row">
+      <div class="alloc-head">
+        <span class="s">${shortName(r.name)}</span>
+        <span class="n"><b>${r.port.toFixed(1)}</b> / ${r.bench.toFixed(1)} <span class="${aCls}">(${aTxt})</span></span>
+      </div>
+      <div class="bar-track">
+        <div class="bar-port" style="width:${(r.port/max*100).toFixed(1)}%"></div>
+        <div class="bar-bench" style="left:${(r.bench/max*100).toFixed(1)}%"></div>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+function renderMovers() {
+  const valid = DATA.filter(d => !isNull(d.r5d));
+  const up = valid.slice().sort((a,b)=>b.r5d-a.r5d).slice(0,5);
+  const down = valid.slice().sort((a,b)=>a.r5d-b.r5d).slice(0,5);
+  const row = d => `<div class="mover"><span class="tk">${d.ticker}</span>
+    <span class="v ${d.r5d>0?'pos':'neg'}">${(d.r5d>0?'+':'')+d.r5d.toFixed(1)}%</span></div>`;
+  document.getElementById("moversUp").innerHTML = up.map(row).join("");
+  document.getElementById("moversDown").innerHTML = down.map(row).join("");
+}
+
+function renderEarnings() {
+  const asOf = new Date(AS_OF + "T00:00:00");
+  const upcoming = DATA.filter(d => !isNull(d.earnings))
+    .map(d => ({ ...d, date: new Date(d.earnings + "T00:00:00") }))
+    .filter(d => d.date >= asOf)
+    .sort((a,b) => a.date - b.date)
+    .slice(0, 8);
+  const fmtDate = dt => dt.toLocaleDateString("en-US",{ month:"short", day:"numeric" });
+  const daysOut = dt => Math.round((dt - asOf) / 86400000);
+  document.getElementById("earnings").innerHTML = upcoming.map(d => {
+    const dd = daysOut(d.date);
+    const rel = dd <= 7 ? `in ${dd}d` : dd <= 14 ? `in ${dd}d` : `in ${Math.round(dd/7)}w`;
+    const soon = dd <= 7 ? "soon" : "";
+    return `<div class="earn-row">
+      <div class="earn-left"><span class="tk">${d.ticker}</span><span class="nm">${d.name}</span></div>
+      <div class="earn-right"><div class="d">${fmtDate(d.date)}</div><div class="rel ${soon}">${rel}</div></div>
+    </div>`;
+  }).join("");
+}
+
+/* ═══════════════════ WIRE UP CONTROLS ═══════════════════ */
+document.getElementById("filterSeg").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  state.filter = b.dataset.f;
+  document.querySelectorAll("#filterSeg button").forEach(x => x.classList.toggle("active", x === b));
+  render();
+});
+
+const gs = document.getElementById("groupSwitch");
+gs.addEventListener("click", () => {
+  state.group = !state.group;
+  gs.classList.toggle("on", state.group);
+  gs.setAttribute("aria-checked", String(state.group));
+  render();
+});
+
+document.getElementById("search").addEventListener("input", e => {
+  state.query = e.target.value.trim();
+  render();
+});
+
+/* ═══════════════════ INIT ═══════════════════ */
+document.getElementById("updated").textContent = "As of " + AS_OF;
+render();
+renderSnapshot();
+renderAllocation();
+renderMovers();
+renderEarnings();
+</script>
+</body>
+</html>
