@@ -1,0 +1,4 @@
+# Runtime deps for the SeaBridge price service.
+# The 'sample' provider and all tests run with ZERO third-party deps (stdlib only).
+# Only the 'yfinance' provider needs these:
+yfinance>=0.2.40
