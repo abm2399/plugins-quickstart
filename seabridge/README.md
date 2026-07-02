@@ -65,7 +65,18 @@ Notes:
 
 ## Run locally
 
-Stdlib only — the `sample` provider and all tests need **no third-party deps**.
+**One step** — starts the service and opens the dashboard, stops cleanly on Ctrl+C:
+
+```bash
+cd seabridge
+./run.sh                # macOS / Linux, sample provider (offline, no installs)
+./run.sh yfinance       # live prices (after: pip install -r requirements.txt)
+# Windows:
+run.bat                 # or:  run.bat yfinance
+```
+
+**Manual**, if you'd rather run the pieces yourself (stdlib only — the `sample`
+provider and all tests need **no third-party deps**):
 
 ```bash
 cd seabridge
@@ -79,6 +90,9 @@ PRICE_PROVIDER=yfinance python server.py
 
 curl 'http://localhost:8787/api/prices?tickers=NVDA,MSFT,AAPL'
 ```
+
+Then open `../seabridge_dashboard_v2.html` and click **Refresh prices**. On a
+non-default port, open it with `?api=http://localhost:<port>/api/prices`.
 
 ## Test
 
