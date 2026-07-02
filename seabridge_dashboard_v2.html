@@ -267,6 +267,30 @@
 
   footer.foot { padding: 18px 20px 30px; color: var(--text-faint); font-size: 11px; border-top: 1px solid var(--border-soft); }
 
+  /* Live refresh button + status */
+  .btn-refresh {
+    display: inline-flex; align-items: center; gap: 7px;
+    background: var(--surface-2); border: 1px solid var(--cyan-dim);
+    color: var(--cyan); font-family: var(--sans); font-weight: 700; font-size: 12px;
+    padding: 7px 13px; border-radius: var(--radius-sm); cursor: pointer;
+    transition: background .12s;
+  }
+  .btn-refresh:hover { background: var(--surface-3); }
+  .btn-refresh:disabled { opacity: .55; cursor: default; }
+  .btn-refresh .ic { display: inline-block; font-size: 14px; line-height: 1; }
+  .btn-refresh.busy .ic { animation: spin .8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .data-status { font-size: 11px; font-family: var(--mono); color: var(--text-lo); }
+  .data-status.ok { color: var(--green-bright); }
+  .data-status.err { color: var(--red-bright); }
+
+  /* Flash on price-changed rows after a refresh */
+  @keyframes flashUp   { 0% { background: rgba(63,185,80,0.30); } 100% { background: transparent; } }
+  @keyframes flashDown { 0% { background: rgba(248,81,73,0.30); } 100% { background: transparent; } }
+  td.flash-up   { animation: flashUp 1.2s ease-out; }
+  td.flash-down { animation: flashDown 1.2s ease-out; }
+
   ::-webkit-scrollbar { height: 10px; width: 10px; }
   ::-webkit-scrollbar-thumb { background: var(--surface-3); border-radius: 6px; border: 2px solid var(--canvas); }
   ::-webkit-scrollbar-track { background: transparent; }
@@ -305,6 +329,11 @@
     <div class="switch" id="groupSwitch" role="switch" aria-checked="false"></div>
     <span>Group by sector</span>
   </div>
+
+  <button class="btn-refresh" id="refreshBtn" title="Fetch live prices from the SeaBridge price service">
+    <span class="ic">&#8635;</span> Refresh prices
+  </button>
+  <span class="data-status" id="dataStatus">CSV baseline</span>
 
   <div class="spacer"></div>
   <div class="count-note" id="countNote"></div>
@@ -718,13 +747,123 @@ document.getElementById("search").addEventListener("input", e => {
   render();
 });
 
+/* ═══════════════════ LIVE PRICE REFRESH + RECALC ═══════════════════
+   The recalc engine: CSV owns positions & fundamentals; the price service
+   owns Last/%Chg/returns. On refresh we merge quotes by ticker, then recalc
+   market value -> dynamic weights -> active weights -> sector attribution.
+
+   Point it at the SeaBridge price service:
+     - default:  http://localhost:8787/api/prices  (run `python server.py`)
+     - override: open this file with ?api=<url>, e.g.
+                 seabridge_dashboard_v2.html?api=https://<deployment>/api/prices
+   For an offline demo, run the service with PRICE_PROVIDER=sample.
+   ─────────────────────────────────────────────────────────────────── */
+const PRICE_API = new URLSearchParams(location.search).get("api")
+  || "http://localhost:8787/api/prices";
+const NOTIONAL = 10000000;   // implied total book (incl. cash) to back out share counts
+let CASH = 0;
+
+function initShares() {
+  // Back out share counts from CSV weight + price so the recalc engine
+  // reproduces the exact CSV weights on load (and cash stays constant).
+  let invested = 0;
+  DATA.forEach(d => {
+    const mv = (d.weight / 100) * NOTIONAL;
+    d.shares = d.last ? mv / d.last : 0;
+    invested += mv;
+  });
+  CASH = NOTIONAL - invested;   // uninvested remainder, held fixed
+}
+
+function recalcWeights() {
+  let invested = 0;
+  DATA.forEach(d => { d.mv = (d.shares || 0) * (d.last || 0); invested += d.mv; });
+  const total = CASH + invested;
+  if (total <= 0) return;
+  DATA.forEach(d => {
+    d.weight = +(d.mv / total * 100).toFixed(2);
+    d.activeWt = +(d.weight - d.benchWt).toFixed(2);
+  });
+}
+
+function renderAll() {
+  render();
+  renderSnapshot();
+  renderAllocation();
+  renderMovers();
+}
+
+function applyFlash(changed) {
+  document.querySelectorAll("#tbody tr").forEach(tr => {
+    const tkEl = tr.querySelector("td.col-ticker .tk");
+    if (!tkEl) return;
+    const dir = changed[tkEl.textContent];
+    if (!dir) return;
+    tr.querySelectorAll("td:not(.col-ticker)").forEach(td => {
+      td.classList.add(dir === "up" ? "flash-up" : "flash-down");
+    });
+  });
+}
+
+let refreshing = false;
+async function refreshPrices() {
+  if (refreshing) return;
+  refreshing = true;
+  const btn = document.getElementById("refreshBtn");
+  const status = document.getElementById("dataStatus");
+  btn.classList.add("busy"); btn.disabled = true;
+  status.textContent = "Fetching…"; status.className = "data-status";
+
+  // Map FactSet-style "BRK.B" -> Yahoo-style "BRK-B" for the request.
+  const syms = DATA.map(d => d.ticker.replace(/\./g, "-"));
+
+  try {
+    const url = PRICE_API + "?tickers=" + encodeURIComponent(syms.join(","));
+    const res = await fetch(url, { method: "GET" });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const json = await res.json();
+    const quotes = json.quotes || {};
+
+    const changed = {};
+    let n = 0;
+    DATA.forEach(d => {
+      const q = quotes[d.ticker] || quotes[d.ticker.replace(/\./g, "-")];
+      if (!q) return;
+      const prev = d.last;
+      ["last", "chg", "r5d", "r30d", "ytd", "r12m", "from52"].forEach(k => {
+        if (q[k] !== undefined && q[k] !== null) d[k] = q[k];
+      });
+      if (d.last != null && prev != null && d.last !== prev) {
+        changed[d.ticker] = d.last > prev ? "up" : "down";
+      }
+      n++;
+    });
+
+    recalcWeights();     // <- market value -> dynamic weights -> active weights
+    renderAll();         // <- table + snapshot + sector attribution + movers
+    applyFlash(changed);
+
+    const errN = json.errors ? Object.keys(json.errors).length : 0;
+    status.textContent = `Updated ${n} · ${json.provider || "?"} · asOf ${json.asOf || "?"}`
+      + (errN ? ` · ${errN} err` : "");
+    status.className = "data-status ok";
+    document.getElementById("updated").textContent =
+      "Prices: " + (json.provider || "?") + " · " + (json.asOf || AS_OF);
+  } catch (e) {
+    status.textContent = "Refresh failed: " + e.message + " — is the price service running?";
+    status.className = "data-status err";
+  } finally {
+    btn.classList.remove("busy"); btn.disabled = false;
+    refreshing = false;
+  }
+}
+
 /* ═══════════════════ INIT ═══════════════════ */
+initShares();
 document.getElementById("updated").textContent = "As of " + AS_OF;
-render();
-renderSnapshot();
-renderAllocation();
-renderMovers();
+renderAll();
 renderEarnings();
+document.getElementById("refreshBtn").addEventListener("click", refreshPrices);
 </script>
 </body>
 </html>
