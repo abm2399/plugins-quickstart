@@ -1,0 +1,18 @@
+# Render Blueprint — one hosted service that serves BOTH the dashboard page
+# and the live /api/prices endpoint (it just runs seabridge/server.py, which
+# is already tested locally).
+#
+# Deploy: see HOSTING.md. Render injects $PORT and the server binds it.
+services:
+  - type: web
+    name: seabridge-dashboard
+    runtime: python
+    plan: free
+    buildCommand: "pip install -r seabridge/requirements.txt"
+    startCommand: "python seabridge/server.py"
+    healthCheckPath: "/"
+    envVars:
+      # Live retail prices via yfinance (Render has open network access).
+      # Change to "sample" for offline/synthetic data with no dependencies.
+      - key: PRICE_PROVIDER
+        value: yfinance
